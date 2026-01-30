@@ -1,183 +1,115 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { dashboardAPI } from '../services/api';
-import { socketService } from '../services/socket';
-import { FiActivity, FiUsers, FiPhone, FiClock, FiTrendingUp } from 'react-icons/fi';
+// src/pages/Dashboard.jsx
+import React, { useEffect, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+    FiActivity,
+    FiUsers,
+    FiPhone,
+    FiClock,
+    FiTrendingUp
+} from 'react-icons/fi';
+import { addCall, removeCall, setCurrentCall } from '../store/slices/callSlice';
 import toast from 'react-hot-toast';
 
 const Dashboard = () => {
+    const dispatch = useDispatch();
     const [stats, setStats] = useState({
-        activeCalls: 0,
-        totalAgents: 0,
-        availableAgents: 0,
-        totalQueues: 0,
-        avgWaitTime: 0
+        totalCalls: 0,
+        answeredCalls: 0,
+        missedCalls: 0,
+        averageTalkTime: 0,
     });
+    const [demoActive, setDemoActive] = useState(false);
 
-    const [activeCalls, setActiveCalls] = useState([]);
-    const [agents, setAgents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const socketServiceRef = useRef(null);
+    const { activeCalls } = useSelector(state => state.calls);
+    const { user } = useSelector(state => state.auth);
 
     useEffect(() => {
-        const socketService = new SocketService();
-        socketServiceRef.current = socketService;
-        loadDashboardData();
-        setupWebSocket(socketService);
-
-        return () => {
-            // Cleanup WebSocket listeners
-            if (socketServiceRef.current) {
-                socketServiceRef.current.disconnect();
+        // Simulate initial data
+        const interval = setInterval(() => {
+            if (demoActive && Math.random() > 0.7) {
+                const newCall = {
+                    id: Date.now(),
+                    caller_id: `+1${Math.floor(Math.random() * 900000000) + 100000000}`,
+                    destination: user?.extension || '1001',
+                    direction: 'inbound',
+                    state: 'ringing',
+                    duration: 0,
+                    timestamp: new Date().toISOString(),
+                };
+                dispatch(addCall(newCall));
+                toast(`Incoming call from ${newCall.caller_id}`);
             }
-        };
-    }, []);
+        }, 5000);
 
-    const setupWebSocket = (socketService) => {
-        socketService.connect();
+        return () => clearInterval(interval);
+    }, [demoActive, dispatch, user]);
 
-        // Handle new calls
-        SocketService.on('call:new', (newCall) => {
-            setActiveCalls(prev => [...prev, newCall]);
-            setStats(prev => ({ ...prev, activeCalls: prev.activeCalls + 1 }));
-            toast(`📞 New call from ${newCall.callerId}`);
+    const handleStartDemo = () => {
+        setDemoActive(true);
+        toast.success('Demo mode started');
+    };
+
+    const handleStopDemo = () => {
+        setDemoActive(false);
+        activeCalls.forEach(call => {
+            dispatch(removeCall(call.id));
         });
-
-        // Handle answered calls
-        SocketService.on('call:answered', (answeredCall) => {
-            setActiveCalls(prev => prev.filter(call => call.id !== answeredCall.id));
-            setStats(prev => ({ ...prev, activeCalls: Math.max(0, prev.activeCalls - 1) }));
-        });
-
-        // Handle agent status changes
-        SocketService.on('agent:statusChanged', ({ agentId, status }) => {
-            setAgents(prev => prev.map(agent =>
-                agent.id === agentId ? { ...agent, status } : agent
-            ));
-        });
+        toast.success('Demo mode stopped');
     };
 
-    const loadDashboardData = async () => {
-        setLoading(true);
-        try {
-            const [statsRes, agentsRes, callsRes] = await Promise.all([
-                dashboardAPI.getStats(),
-                dashboardAPI.getAgents(),
-                dashboardAPI.getActiveCalls()
-            ]);
-
-            // Handle potential undefined responses
-            const statsData = statsRes?.data || { activeCalls: 0, totalAgents: 0, availableAgents: 0, totalQueues: 0, avgWaitTime: 0 };
-            const agentsData = agentsRes?.data || [];
-            const callsData = callsRes?.data || [];
-
-            setStats(statsData);
-            setAgents(agentsData);
-            setActiveCalls(callsData);
-        } catch (error) {
-            console.error('Failed to load dashboard data:', error);
-            toast.error('Failed to load dashboard data. Using demo data.');
-
-            // Fallback demo data
-            setStats({
-                activeCalls: 2,
-                totalAgents: 5,
-                availableAgents: 3,
-                totalQueues: 2,
-                avgWaitTime: 45
-            });
-
-            setAgents([
-                { id: 1, name: 'John Doe', extension: '1001', status: 'available', callsAnswered: 5 },
-                { id: 2, name: 'Jane Smith', extension: '1002', status: 'busy', callsAnswered: 8 },
-                { id: 3, name: 'Bob Johnson', extension: '1003', status: 'available', callsAnswered: 12 }
-            ]);
-
-            setActiveCalls([
-                { id: 1, callerId: '+1234567890', destination: '1000', direction: 'inbound', status: 'ringing', startTime: new Date().toISOString() },
-                { id: 2, callerId: '+1987654321', destination: '1001', direction: 'inbound', status: 'answered', startTime: new Date().toISOString(), agentId: 1 }
-            ]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSimulateCall = async () => {
-        try {
-            await dashboardAPI.simulateCall();
-            toast.success('Simulated a new incoming call');
-        } catch (error) {
-            console.error('Failed to simulate call:', error);
-            toast.error('Failed to simulate call. Backend might not be running.');
-
-            // Fallback: Add a demo call
-            const demoCall = {
-                id: Date.now(),
-                callerId: `+1${Math.floor(Math.random() * 900000000) + 100000000}`,
-                destination: '1000',
-                direction: 'inbound',
-                status: 'ringing',
-                startTime: new Date().toISOString(),
-            };
-            setActiveCalls(prev => [...prev, demoCall]);
-            setStats(prev => ({ ...prev, activeCalls: prev.activeCalls + 1 }));
-            toast(`📞 Demo call from ${demoCall.callerId}`);
-        }
-    };
-
-    const handleAnswerCall = (callId) => {
-        const socketService = socketServiceRef.current;
-        if (socketService && socketService.isConnected && socketService.isConnected()) {
-            socketService.emit('call:answer', {
-                callId,
-                agentId: 1
-            });
-            toast.success('Call answered');
-        } else {
-            // Fallback for demo
-            setActiveCalls(prev => prev.filter(call => call.id !== callId));
-            setStats(prev => ({ ...prev, activeCalls: Math.max(0, prev.activeCalls - 1) }));
-            toast.success('Call answered (demo mode)');
-        }
-    };
-
-    const handleUpdateAgentStatus = (agentId, status) => {
-        const socketService = socketServiceRef.current;
-        if (socketService && socketService.isConnected && socketService.isConnected()) {
-            socketService.emit('agent:updateStatus', { agentId, status });
-        }
-        // Update local state regardless
-        setAgents(prev => prev.map(agent =>
-            agent.id === agentId ? { ...agent, status } : agent
-        ));
+    const handleAnswerCall = (call) => {
+        dispatch(setCurrentCall(call));
+        dispatch(removeCall(call.id));
+        toast.success(`Answered call from ${call.caller_id}`);
     };
 
     const statCards = [
-        { title: 'Active Calls', value: stats.activeCalls, icon: <FiActivity />, color: 'blue' },
-        { title: 'Available Agents', value: stats.availableAgents, icon: <FiUsers />, color: 'green' },
-        { title: 'Total Agents', value: stats.totalAgents, icon: <FiUsers />, color: 'purple' },
-        { title: 'Avg Wait Time', value: `${Math.round(stats.avgWaitTime)}s`, icon: <FiClock />, color: 'orange' },
-        { title: 'Total Queues', value: stats.totalQueues, icon: <FiTrendingUp />, color: 'teal' },
+        {
+            title: 'Active Calls',
+            value: activeCalls.length,
+            icon: <FiActivity />,
+            color: 'blue',
+        },
+        {
+            title: 'Agents Online',
+            value: '3',
+            icon: <FiUsers />,
+            color: 'green',
+        },
+        {
+            title: 'Calls Today',
+            value: '42',
+            icon: <FiPhone />,
+            color: 'purple',
+        },
+        {
+            title: 'Avg Talk Time',
+            value: '3m 24s',
+            icon: <FiClock />,
+            color: 'orange',
+        },
+        {
+            title: 'Service Level',
+            value: '92%',
+            icon: <FiTrendingUp />,
+            color: 'teal',
+        },
     ];
-
-    if (loading) {
-        return (
-            <div className="loading-container">
-                <div className="spinner"></div>
-                <p>Loading dashboard data...</p>
-            </div>
-        );
-    }
 
     return (
         <div className="dashboard-page">
             <div className="dashboard-header">
                 <h1>Call Center Dashboard</h1>
                 <div className="dashboard-actions">
-                    <button className="btn-simulate" onClick={handleSimulateCall}>
-                        Simulate Call
+                    <button
+                        className={`btn-demo ${demoActive ? 'active' : ''}`}
+                        onClick={demoActive ? handleStopDemo : handleStartDemo}
+                    >
+                        {demoActive ? 'Stop Demo' : 'Start Demo'}
                     </button>
-                    <button className="btn-refresh" onClick={loadDashboardData}>
-                        Refresh Data
+                    <button className="btn-refresh">
+                        Refresh
                     </button>
                 </div>
             </div>
@@ -195,63 +127,52 @@ const Dashboard = () => {
             </div>
 
             <div className="dashboard-content">
-                <div className="dashboard-section">
-                    <h3>Active Calls ({activeCalls.length})</h3>
-                    <div className="calls-list">
-                        {activeCalls.map(call => (
-                            <div key={call.id} className="call-item">
-                                <div className="call-info">
-                                    <div className="call-direction">{call.direction}</div>
-                                    <div className="call-numbers">
-                                        <span className="caller">{call.callerId}</span>
-                                        <span className="call-arrow">→</span>
-                                        <span className="callee">{call.destination}</span>
+                <div className="dashboard-left">
+                    <div className="dashboard-section">
+                        <h3>Active Calls ({activeCalls.length})</h3>
+                        <div className="calls-list">
+                            {activeCalls.map(call => (
+                                <div key={call.id} className="call-item">
+                                    <div className="call-info">
+                                        <div className="call-direction">{call.direction}</div>
+                                        <div className="call-numbers">
+                                            <span className="caller">{call.caller_id}</span>
+                                            <span className="call-arrow">→</span>
+                                            <span className="callee">{call.destination}</span>
+                                        </div>
+                                        <div className="call-status">{call.state}</div>
                                     </div>
-                                    <div className={`call-status ${call.status}`}>{call.status}</div>
+                                    {call.state === 'ringing' && (
+                                        <button
+                                            className="btn-answer"
+                                            onClick={() => handleAnswerCall(call)}
+                                        >
+                                            Answer
+                                        </button>
+                                    )}
                                 </div>
-                                {call.status === 'ringing' && (
-                                    <button
-                                        className="btn-answer"
-                                        onClick={() => handleAnswerCall(call.id)}
-                                    >
-                                        Answer
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                        {activeCalls.length === 0 && (
-                            <div className="no-calls">No active calls</div>
-                        )}
+                            ))}
+                            {activeCalls.length === 0 && (
+                                <div className="no-calls">No active calls</div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <div className="dashboard-section">
-                    <h3>Agent Status ({agents.filter(a => a.status === 'available').length} available)</h3>
-                    <div className="agents-list">
-                        {agents.map(agent => (
-                            <div key={agent.id} className={`agent-item ${agent.status}`}>
-                                <div className="agent-info">
-                                    <div className="agent-name">{agent.name}</div>
-                                    <div className="agent-details">
-                                        <span className="agent-extension">Ext: {agent.extension}</span>
-                                        <span className="agent-calls">Calls: {agent.callsAnswered}</span>
-                                    </div>
-                                </div>
-                                <div className="agent-status-controls">
-                                    <span className={`status-badge ${agent.status}`}>{agent.status}</span>
-                                    <select
-                                        value={agent.status}
-                                        onChange={(e) => handleUpdateAgentStatus(agent.id, e.target.value)}
-                                        className="status-select"
-                                    >
-                                        <option value="available">Available</option>
-                                        <option value="busy">Busy</option>
-                                        <option value="away">Away</option>
-                                        <option value="offline">Offline</option>
-                                    </select>
-                                </div>
-                            </div>
-                        ))}
+                <div className="dashboard-middle">
+                    <div className="dashboard-section">
+                        <h3>Quick Actions</h3>
+                        <div className="quick-actions-grid">
+                            <button className="quick-action">
+                                <FiPhone /> Make Call
+                            </button>
+                            <button className="quick-action">
+                                <FiUsers /> View Agents
+                            </button>
+                            <button className="quick-action">
+                                <FiActivity /> View Reports
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
