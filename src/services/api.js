@@ -1,15 +1,59 @@
 // src/services/api.js
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { io } from 'socket.io-client';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const SOCKET_URL = 'http://localhost:3001';
 const api = axios.create({
     baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
 });
+
+// Dashboard API calls
+export const dashboardAPI = {
+    getStats: () => api.get('/dashboard/stats'),
+    getAgents: () => api.get('/agents'),
+    getActiveCalls: () => api.get('/calls/active'),
+    simulateCall: () => api.post('/calls/simulate'),
+};
+
+// WebSocket service for real-time updates
+export class SocketService {
+    constructor() {
+        this.socket = null;
+    }
+
+    connect() {
+        this.socket = io(SOCKET_URL);
+
+        this.socket.on('connect', () => {
+            console.log('Connected to WebSocket server');
+        });
+
+        return this.socket;
+    }
+
+    disconnect() {
+        if (this.socket) {
+            this.socket.disconnect();
+        }
+    }
+
+    on(event, callback) {
+        if (this.socket) {
+            this.socket.on(event, callback);
+        }
+    }
+
+    emit(event, data) {
+        if (this.socket) {
+            this.socket.emit(event, data);
+        }
+    }
+}
 
 // Request interceptor
 api.interceptors.request.use(
