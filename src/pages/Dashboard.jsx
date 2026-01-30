@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { dashboardAPI, socketService } from '../services/api';
+import { dashboardAPI } from '../services/api';
+import { socketService } from '../services/socket';
 import { FiActivity, FiUsers, FiPhone, FiClock, FiTrendingUp } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -15,41 +16,40 @@ const Dashboard = () => {
     const [activeCalls, setActiveCalls] = useState([]);
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
-    const socketRef = useRef(null);
+    const socketServiceRef = useRef(null);
 
     useEffect(() => {
+        const socketService = new SocketService();
+        socketServiceRef.current = socketService;
         loadDashboardData();
-        setupWebSocket();
+        setupWebSocket(socketService);
 
         return () => {
             // Cleanup WebSocket listeners
-            if (socketRef.current) {
-                socketRef.current.off('call:new');
-                socketRef.current.off('call:answered');
-                socketRef.current.off('agent:statusChanged');
+            if (socketServiceRef.current) {
+                socketServiceRef.current.disconnect();
             }
         };
     }, []);
 
-    const setupWebSocket = () => {
-        const socket = socketService.connect();
-        socketRef.current = socketService;
+    const setupWebSocket = (socketService) => {
+        socketService.connect();
 
         // Handle new calls
-        socketService.on('call:new', (newCall) => {
+        SocketService.on('call:new', (newCall) => {
             setActiveCalls(prev => [...prev, newCall]);
             setStats(prev => ({ ...prev, activeCalls: prev.activeCalls + 1 }));
             toast(`📞 New call from ${newCall.callerId}`);
         });
 
         // Handle answered calls
-        socketService.on('call:answered', (answeredCall) => {
+        SocketService.on('call:answered', (answeredCall) => {
             setActiveCalls(prev => prev.filter(call => call.id !== answeredCall.id));
             setStats(prev => ({ ...prev, activeCalls: Math.max(0, prev.activeCalls - 1) }));
         });
 
         // Handle agent status changes
-        socketService.on('agent:statusChanged', ({ agentId, status }) => {
+        SocketService.on('agent:statusChanged', ({ agentId, status }) => {
             setAgents(prev => prev.map(agent =>
                 agent.id === agentId ? { ...agent, status } : agent
             ));
@@ -125,7 +125,8 @@ const Dashboard = () => {
     };
 
     const handleAnswerCall = (callId) => {
-        if (socketService.isConnected()) {
+        const socketService = socketServiceRef.current;
+        if (socketService && socketService.isConnected && socketService.isConnected()) {
             socketService.emit('call:answer', {
                 callId,
                 agentId: 1
@@ -140,7 +141,8 @@ const Dashboard = () => {
     };
 
     const handleUpdateAgentStatus = (agentId, status) => {
-        if (socketService.isConnected()) {
+        const socketService = socketServiceRef.current;
+        if (socketService && socketService.isConnected && socketService.isConnected()) {
             socketService.emit('agent:updateStatus', { agentId, status });
         }
         // Update local state regardless

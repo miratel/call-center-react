@@ -24,14 +24,30 @@ export const dashboardAPI = {
 export class SocketService {
     constructor() {
         this.socket = null;
+        this.eventHandlers = new Map();
     }
 
     connect() {
-        this.socket = io(SOCKET_URL);
+        if (!this.socket || !this.socket.connected) {
+            this.socket = io(SOCKET_URL, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+            });
 
-        this.socket.on('connect', () => {
-            console.log('Connected to WebSocket server');
-        });
+            this.socket.on('connect', () => {
+                console.log('Connected to WebSocket server');
+            });
+
+            this.socket.on('disconnect', (reason) => {
+                console.log('Disconnected from WebSocket:', reason);
+            });
+
+            this.socket.on('connect_error', (error) => {
+                console.error('WebSocket connection error:', error);
+            });
+        }
 
         return this.socket;
     }
@@ -39,19 +55,36 @@ export class SocketService {
     disconnect() {
         if (this.socket) {
             this.socket.disconnect();
+            this.socket = null;
+            this.eventHandlers.clear();
         }
     }
 
     on(event, callback) {
         if (this.socket) {
             this.socket.on(event, callback);
+            this.eventHandlers.set(event, callback);
+        }
+    }
+
+    off(event) {
+        if (this.socket && this.eventHandlers.has(event)) {
+            this.socket.off(event, this.eventHandlers.get(event));
+            this.eventHandlers.delete(event);
         }
     }
 
     emit(event, data) {
-        if (this.socket) {
+        if (this.socket && this.socket.connected) {
             this.socket.emit(event, data);
+            return true;
         }
+        console.warn('Cannot emit event: WebSocket not connected');
+        return false;
+    }
+
+    isConnected() {
+        return this.socket && this.socket.connected;
     }
 }
 
@@ -340,5 +373,6 @@ export const systemAPI = {
         });
     },
 };
+export const socketService = new SocketService();
 
 export default api;

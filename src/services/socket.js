@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import { playSound, stopSound } from './sound';
 
+const SOCKET_URL = 'localhost:3001'
 class SocketService {
     constructor() {
         this.socket = null;
@@ -27,22 +28,53 @@ class SocketService {
     }
 
     connect() {
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-            console.error('No auth token available');
-            return;
+        if (!this.socket || !this.socket.connected) {
+            this.socket = io(SOCKET_URL);
+
+            this.socket.on('connect', () => {
+                console.log('✅ Socket connected');
+            });
+
+            this.socket.on('disconnect', () => {
+                console.log('❌ Socket disconnected');
+            });
         }
-
-        this.socket = io(process.env.REACT_APP_WS_URL || 'http://localhost:5000', {
-            auth: { token },
-            transports: ['websocket', 'polling'],
-            reconnection: true,
-            reconnectionAttempts: this.maxReconnectAttempts,
-            reconnectionDelay: this.reconnectDelay,
-        });
-
-        this.setupEventListeners();
+        return this.socket;
     }
+    disconnect() {
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+            this.eventHandlers.clear();
+        }
+    }
+    on(event, callback) {
+        if (this.socket) {
+            this.socket.on(event, callback);
+            this.eventHandlers.set(event, callback);
+        }
+    }
+
+    off(event) {
+        if (this.socket && this.eventHandlers.has(event)) {
+            this.socket.off(event, this.eventHandlers.get(event));
+            this.eventHandlers.delete(event);
+        }
+    }
+
+    emit(event, data) {
+        if (this.socket && this.socket.connected) {
+            this.socket.emit(event, data);
+            return true;
+        }
+        console.warn('Cannot emit event: WebSocket not connected');
+        return false;
+    }
+
+    isConnected() {
+        return this.socket && this.socket.connected;
+    }
+
 
     setupEventListeners() {
         if (!this.socket) return;
@@ -334,5 +366,5 @@ class SocketService {
         this.eventHandlers.clear();
     }
 }
-
+export const socketService = new SocketService();
 export default new SocketService();
