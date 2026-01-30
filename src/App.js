@@ -7,19 +7,21 @@ import { Toaster } from 'react-hot-toast';
 import { store } from './store';
 import './App.css';
 
-// Pages
+// Layout and Pages
+import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Calls from './pages/Calls';
-import Agents from './pages/Agents';
-import Queues from './pages/Queues';
-import Contacts from './pages/Contacts';
-import Campaigns from './pages/Campaigns';
-import Recordings from './pages/Recordings';
-import Reports from './pages/Reports';
-import IVR from './pages/IVR';
-import Settings from './pages/Settings';
-import Layout from './components/Layout';
+
+// Placeholder pages for other routes
+const Calls = () => <div className="page">Calls Page</div>;
+const Agents = () => <div className="page">Agents Page</div>;
+const Queues = () => <div className="page">Queues Page</div>;
+const Contacts = () => <div className="page">Contacts Page</div>;
+const Campaigns = () => <div className="page">Campaigns Page</div>;
+const Recordings = () => <div className="page">Recordings Page</div>;
+const Reports = () => <div className="page">Reports Page</div>;
+const IVR = () => <div className="page">IVR Page</div>;
+const Settings = () => <div className="page">Settings Page</div>;
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
@@ -51,20 +53,6 @@ function App() {
                 style: {
                   background: '#363636',
                   color: '#fff',
-                },
-                success: {
-                  duration: 3000,
-                  iconTheme: {
-                    primary: '#10b981',
-                    secondary: '#fff',
-                  },
-                },
-                error: {
-                  duration: 5000,
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#fff',
-                  },
                 },
               }}
             />

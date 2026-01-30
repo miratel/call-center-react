@@ -1,44 +1,41 @@
 // src/store/slices/authSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authAPI } from '../../services/api';
 
 export const login = createAsyncThunk(
     'auth/login',
-    async ({ username, password }, { rejectWithValue }) => {
-        try {
-            const response = await authAPI.login(username, password);
-            localStorage.setItem('auth_token', response.token);
-            localStorage.setItem('user', JSON.stringify(response.user));
-            return response.user;
-        } catch (error) {
-            return rejectWithValue(error.response?.data?.message || 'Login failed');
-        }
-    }
-);
-
-export const logout = createAsyncThunk(
-    'auth/logout',
-    async () => {
-        await authAPI.logout();
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
+    async ({ username, password }) => {
+        // Simulate API call
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve({
+                    id: 1,
+                    username,
+                    name: 'Admin User',
+                    email: 'admin@callcenter.com',
+                    extension: '1001',
+                    role: 'admin'
+                });
+            }, 1000);
+        });
     }
 );
 
 const authSlice = createSlice({
     name: 'auth',
     initialState: {
-        user: JSON.parse(localStorage.getItem('user')) || null,
+        user: null,
         token: localStorage.getItem('auth_token') || null,
         loading: false,
         error: null,
     },
     reducers: {
+        logout: (state) => {
+            state.user = null;
+            state.token = null;
+            localStorage.removeItem('auth_token');
+        },
         setUser: (state, action) => {
             state.user = action.payload;
-        },
-        clearError: (state) => {
-            state.error = null;
         },
     },
     extraReducers: (builder) => {
@@ -50,18 +47,15 @@ const authSlice = createSlice({
             .addCase(login.fulfilled, (state, action) => {
                 state.loading = false;
                 state.user = action.payload;
-                state.error = null;
+                state.token = 'fake-jwt-token';
+                localStorage.setItem('auth_token', 'fake-jwt-token');
             })
             .addCase(login.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.payload;
-            })
-            .addCase(logout.fulfilled, (state) => {
-                state.user = null;
-                state.token = null;
+                state.error = action.error.message;
             });
     },
 });
 
-export const { setUser, clearError } = authSlice.actions;
+export const { logout, setUser } = authSlice.actions;
 export default authSlice.reducer;

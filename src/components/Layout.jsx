@@ -1,6 +1,6 @@
 // src/components/Layout.jsx
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
     FiHome,
@@ -12,20 +12,16 @@ import {
     FiMic,
     FiBarChart2,
     FiSettings,
-    FiBell,
     FiMenu,
     FiLogOut,
     FiChevronDown
 } from 'react-icons/fi';
-import {
-    BsTelephone
-} from 'react-icons/bs';
 import { logout } from '../store/slices/authSlice';
-import AgentPresence from './agents/AgentPresence';
 
 const Layout = ({ children }) => {
     const location = useLocation();
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -41,12 +37,12 @@ const Layout = ({ children }) => {
         { path: '/campaigns', label: 'Campaigns', icon: <FiTarget /> },
         { path: '/recordings', label: 'Recordings', icon: <FiMic /> },
         { path: '/reports', label: 'Reports', icon: <FiBarChart2 /> },
-        { path: '/ivr', label: 'IVR', icon: <BsTelephone /> },
-        { path: '/settings', label: 'Settings', icon: <FiSettings /> },
+        { path: '/settings', label: 'Settings', icon: <FiSettings /> }
     ];
 
     const handleLogout = () => {
         dispatch(logout());
+        navigate('/login');
     };
 
     return (
@@ -84,7 +80,17 @@ const Layout = ({ children }) => {
                 </nav>
 
                 <div className="sidebar-footer">
-                    {sidebarOpen && <AgentPresence />}
+                    {sidebarOpen && user && (
+                        <div className="user-info-sidebar">
+                            <div className="user-avatar-small">
+                                {user.name?.charAt(0) || 'U'}
+                            </div>
+                            <div className="user-details">
+                                <div className="user-name">{user.name}</div>
+                                <div className="user-role">{user.role}</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </aside>
 

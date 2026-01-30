@@ -7,8 +7,8 @@ import { FiUser, FiLock } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const Login = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [username, setUsername] = useState('admin');
+    const [password, setPassword] = useState('admin');
     const [loading, setLoading] = useState(false);
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -23,8 +23,8 @@ const Login = () => {
 
         setLoading(true);
         try {
-            const result = await dispatch(login({ username, password })).unwrap();
-            toast.success(`Welcome ${result.name}!`);
+            await dispatch(login({ username, password })).unwrap();
+            toast.success('Login successful!');
             navigate('/');
         } catch (err) {
             toast.error(err || 'Login failed');
